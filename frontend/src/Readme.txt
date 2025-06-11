@@ -1,0 +1,1 @@
+npm install element-plus echarts lucide-vue-next
