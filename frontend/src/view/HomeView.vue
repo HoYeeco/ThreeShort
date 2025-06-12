@@ -11,7 +11,8 @@ import Navigation from "@/components/Navigation.vue";
 import Dashboard from "@/components/Dashboard.vue";
 import PlaceholderView from "@/components/PlaceholderView.vue";
 import BehaviorView from "./BehaviorView.vue";
-import LearningView from '@/view/LearningView.vue';
+import LearningView from "@/components/LearningView.vue";
+import PersionalView from "@/components/PersionalView.vue";
 
 const activeTab = ref("home");
 
@@ -20,7 +21,7 @@ const views = {
   behavior: BehaviorView,
   points: PlaceholderView,
   learning: LearningView,
-  profile: PlaceholderView,
+  profile: PersionalView,
 };
 
 const currentView = ref(views.home);
