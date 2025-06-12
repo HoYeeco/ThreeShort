@@ -23,7 +23,7 @@
           </button>
         </div>
       </div>
-      <button class="navigation-logout">
+      <button class="navigation-logout" @click="logout">
         <LogOut class="navigation-logout-icon" />
         <span class="navigation-logout-label">退出</span>
       </button>
