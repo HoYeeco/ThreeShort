@@ -33,6 +33,7 @@
 
 <script setup>
 import { Home, Users, Award, BookOpen, User, LogOut } from "lucide-vue-next";
+import { useRouter } from "vue-router";
 
 defineProps({
   activeTab: {
@@ -43,6 +44,8 @@ defineProps({
 
 defineEmits(["tab-change"]);
 
+const router = useRouter();
+
 const navItems = [
   { id: "home", label: "主页", icon: Home },
   { id: "behavior", label: "信用行为", icon: Users },
@@ -50,6 +53,14 @@ const navItems = [
   { id: "learning", label: "居民公约学习", icon: BookOpen },
   { id: "profile", label: "个人中心", icon: User },
 ];
+
+const logout = () => {
+  // 清除本地存储中的登录状态信息
+  localStorage.removeItem("isLoggedIn");
+  localStorage.removeItem("username");
+  // 跳转到登录页面
+  router.push("/login");
+};
 </script>
 
 <style scoped>
