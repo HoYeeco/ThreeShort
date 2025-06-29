@@ -25,34 +25,7 @@
             <el-icon><User /></el-icon>
             <template #title>个人信息</template>
           </el-menu-item>
-          
-          <!-- 普通居民功能菜单 -->
-          <template v-if="userStore.isResident">
-            <el-menu-item index="/credit-reports">
-              <el-icon><Document /></el-icon>
-              <template #title>信用上报</template>
-            </el-menu-item>
-            
-            <el-menu-item index="/products">
-              <el-icon><ShoppingBag /></el-icon>
-              <template #title>积分商城</template>
-            </el-menu-item>
-            
-            <el-menu-item index="/exchange-records">
-              <el-icon><List /></el-icon>
-              <template #title>兑换记录</template>
-            </el-menu-item>
-            
-            <el-menu-item index="/agreements">
-              <el-icon><Reading /></el-icon>
-              <template #title>公约学习</template>
-            </el-menu-item>
-            
-            <el-menu-item index="/feedback">
-              <el-icon><Comment /></el-icon>
-              <template #title>反馈建议</template>
-            </el-menu-item>
-          </template>
+         
           
           <!-- 社区管理员功能菜单 -->
           <template v-if="userStore.isAdmin">
