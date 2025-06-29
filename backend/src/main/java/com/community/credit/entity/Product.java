@@ -1,6 +1,7 @@
 package com.community.credit.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.community.credit.config.ListStringTypeHandler;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -48,9 +49,13 @@ public class Product {
     @TableField("image_url")
     private String imageUrl;
 
-    @Schema(description = "可兑换信用等级")
-    @TableField("eligible_levels")
+    @Schema(description = "可兑换信用等级（兼容旧版本）")
+    @TableField(value = "eligible_levels", typeHandler = ListStringTypeHandler.class)
     private List<String> eligibleLevels;
+
+    @Schema(description = "最低兑换等级")
+    @TableField("min_eligible_level")
+    private String minEligibleLevel;
 
     @Schema(description = "是否启用")
     @TableField("is_active")
