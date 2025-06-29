@@ -38,36 +38,7 @@ const router = createRouter({
           meta: { title: '个人信息' }
         },
         // 普通居民功能
-        {
-          path: 'credit-reports',
-          name: 'CreditReports',
-          component: () => import('@/views/CreditReports.vue'),
-          meta: { title: '信用行为上报', roles: ['RESIDENT'] }
-        },
-        {
-          path: 'products',
-          name: 'Products',
-          component: () => import('@/views/Products.vue'),
-          meta: { title: '积分商城', roles: ['RESIDENT'] }
-        },
-        {
-          path: 'exchange-records',
-          name: 'ExchangeRecords',
-          component: () => import('@/views/ExchangeRecords.vue'),
-          meta: { title: '兑换记录', roles: ['RESIDENT'] }
-        },
-        {
-          path: 'agreements',
-          name: 'Agreements',
-          component: () => import('@/views/Agreements.vue'),
-          meta: { title: '居民公约学习', roles: ['RESIDENT'] }
-        },
-        {
-          path: 'feedback',
-          name: 'Feedback',
-          component: () => import('@/views/Feedback.vue'),
-          meta: { title: '反馈建议', roles: ['RESIDENT'] }
-        },
+       
         // 社区管理员功能
         {
           path: 'users',
