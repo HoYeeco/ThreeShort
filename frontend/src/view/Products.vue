@@ -14,7 +14,7 @@
         <el-button 
           v-if="userStore.isAdmin" 
           type="primary" 
-          @click="showCreateDialog = true"
+          @click="openCreateDialog"
         >
           <el-icon><Plus /></el-icon>
           添加商品
@@ -23,7 +23,7 @@
         <el-button 
           v-if="!userStore.isAdmin" 
           type="success" 
-          @click="showExchangeRecords = true"
+          @click="goToExchangeRecords"
         >
           <el-icon><List /></el-icon>
           兑换记录
@@ -121,8 +121,8 @@
               </div>
               
               <div class="product-meta">
-                <el-tag :type="getLevelColor(product.eligibleLevels)" size="small">
-                  {{ getLevelText(product.eligibleLevels) }}
+                <el-tag :type="getLevelColor(product)" size="small">
+                  {{ getLevelText(product) }}
                 </el-tag>
                 <span class="stock">库存：{{ product.stockQuantity }}</span>
               </div>
@@ -158,15 +158,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="stockQuantity" label="库存" width="80" align="center" />
-        <el-table-column prop="eligibleLevels" label="可兑换等级" width="120">
+        <el-table-column label="可兑换等级" width="150">
           <template #default="scope">
-            <el-tag 
-              v-for="level in scope.row.eligibleLevels" 
-              :key="level" 
-              size="small" 
-              style="margin-right: 5px"
-            >
-              {{ level }}
+            <el-tag :type="getLevelColor(scope.row)" size="small">
+              {{ getLevelText(scope.row) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -256,19 +251,34 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="可兑换等级" prop="eligibleLevels">
-          <el-checkbox-group v-model="productForm.eligibleLevels">
-            <el-checkbox label="D">D级</el-checkbox>
-            <el-checkbox label="C">C级</el-checkbox>
-            <el-checkbox label="B">B级</el-checkbox>
-            <el-checkbox label="A">A级</el-checkbox>
-            <el-checkbox label="AA">AA级</el-checkbox>
-            <el-checkbox label="AAA">AAA级</el-checkbox>
-          </el-checkbox-group>
+        <el-form-item label="最低兑换等级" prop="minEligibleLevel">
+          <el-select v-model="productForm.minEligibleLevel" placeholder="请选择最低兑换等级" style="width: 100%">
+            <el-option label="D级（所有用户可兑换）" value="D" />
+            <el-option label="C级（C级及以上可兑换）" value="C" />
+            <el-option label="B级（B级及以上可兑换）" value="B" />
+            <el-option label="A级（A级及以上可兑换）" value="A" />
+            <el-option label="AA级（AA级及以上可兑换）" value="AA" />
+            <el-option label="AAA级（仅AAA级可兑换）" value="AAA" />
+          </el-select>
+          <div class="form-tip">选择最低兑换等级，该等级及更高等级的用户都可以兑换此商品</div>
         </el-form-item>
         
         <el-form-item label="商品图片">
-          <el-input v-model="productForm.imageUrl" placeholder="请输入图片URL" />
+          <el-upload
+            ref="uploadRef"
+            :action="uploadAction"
+            :data="uploadData"
+            :before-upload="beforeUpload"
+            :on-success="handleUploadSuccess"
+            :on-remove="handleRemoveFile"
+            :file-list="fileList"
+            list-type="picture-card"
+            accept="image/*"
+            :limit="1"
+          >
+            <el-icon><Plus /></el-icon>
+          </el-upload>
+          <div class="upload-tip">支持jpg、png、gif格式，文件大小不超过10MB</div>
         </el-form-item>
       </el-form>
       
@@ -323,7 +333,7 @@
         
         <div class="exchange-info">
           <p>您当前积分：{{ userProfile?.rewardPoints || 0 }}</p>
-          <p>兑换后余额：{{ userProfile?.rewardPoints - totalPoints || 0 }}</p>
+          <p>兑换后余额：{{ (userProfile?.rewardPoints || 0) - totalPoints }}</p>
         </div>
       </div>
       
@@ -342,26 +352,7 @@
       </template>
     </el-dialog>
 
-    <!-- 兑换记录对话框 -->
-    <el-dialog v-model="showExchangeRecords" title="我的兑换记录" width="800px">
-      <el-table :data="exchangeRecords" style="width: 100%">
-        <el-table-column prop="productName" label="商品名称" min-width="150" />
-        <el-table-column prop="quantity" label="数量" width="80" align="center" />
-        <el-table-column prop="pointsUsed" label="消耗积分" width="100" align="center" />
-        <el-table-column prop="status" label="状态" width="100" align="center">
-          <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)">
-              {{ getStatusText(scope.row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="exchangeTime" label="兑换时间" width="160">
-          <template #default="scope">
-            {{ formatDate(scope.row.exchangeTime) }}
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-dialog>
+
 
     <!-- 库存更新对话框 -->
     <el-dialog v-model="showStockDialog" title="更新库存" width="400px">
@@ -395,10 +386,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Star, Plus, List, Search, Refresh 
 } from '@element-plus/icons-vue'
+import type { UploadFile, UploadProps } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import request from '@/utils/request'
 
@@ -411,6 +404,7 @@ interface Product {
   category: string
   imageUrl?: string
   eligibleLevels: string[]
+  minEligibleLevel?: string
   isActive: boolean
   createdTime: string
 }
@@ -421,11 +415,11 @@ interface UserProfile {
 }
 
 const userStore = useUserStore()
+const router = useRouter()
 
 // 响应式数据
 const productList = ref<Product[]>([])
 const userProfile = ref<UserProfile | null>(null)
-const exchangeRecords = ref([])
 
 // 查询表单
 const queryForm = ref({
@@ -446,7 +440,6 @@ const pagination = ref({
 // 对话框状态
 const showCreateDialog = ref(false)
 const showExchangeDialogVisible = ref(false)
-const showExchangeRecords = ref(false)
 const showStockDialog = ref(false)
 
 // 加载状态
@@ -457,6 +450,11 @@ const stockLoading = ref(false)
 // 表单数据
 const editingProduct = ref<Product | null>(null)
 const selectedProduct = ref<Product | null>(null)
+const productFormRef = ref()
+
+// 文件上传相关
+const fileList = ref<UploadFile[]>([])
+const uploadRef = ref()
 
 const productForm = ref({
   name: '',
@@ -464,7 +462,7 @@ const productForm = ref({
   pointsRequired: 1,
   stockQuantity: 0,
   category: '',
-  eligibleLevels: [],
+  minEligibleLevel: 'D',
   imageUrl: ''
 })
 
@@ -474,7 +472,7 @@ const exchangeForm = ref({
 })
 
 const stockForm = ref({
-  productId: null,
+  productId: null as number | null,
   productName: '',
   currentStock: 0,
   newStock: 0
@@ -510,6 +508,18 @@ const canConfirmExchange = computed(() => {
          exchangeForm.value.quantity > 0
 })
 
+// 文件上传相关计算属性
+const uploadAction = computed(() => {
+  return '/api/files/upload'
+})
+
+const uploadData = computed(() => {
+  return {
+    businessType: 'PRODUCT',
+    userId: userStore.userInfo?.id || 1
+  }
+})
+
 // 方法
 const loadProducts = async () => {
   try {
@@ -538,17 +548,6 @@ const loadUserProfile = async () => {
   }
 }
 
-const loadExchangeRecords = async () => {
-  if (!userStore.userInfo?.id) return
-  
-  try {
-    const response = await request.get(`/exchange-record/current?userId=${userStore.userInfo.id}&limit=20`)
-    exchangeRecords.value = response.data || []
-  } catch (error) {
-    ElMessage.error('加载兑换记录失败')
-  }
-}
-
 const resetQuery = () => {
   queryForm.value = {
     name: '',
@@ -561,17 +560,108 @@ const resetQuery = () => {
   loadProducts()
 }
 
+// 跳转到兑换记录页面
+const goToExchangeRecords = () => {
+  router.push('/exchange-records')
+}
+
+// 文件上传方法
+const beforeUpload: UploadProps['beforeUpload'] = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt10M = file.size / 1024 / 1024 < 10
+
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件!')
+    return false
+  }
+  if (!isLt10M) {
+    ElMessage.error('上传文件大小不能超过 10MB!')
+    return false
+  }
+  return true
+}
+
+const handleUploadSuccess = (response: any, file: UploadFile) => {
+  if (response.code === 200) {
+    productForm.value.imageUrl = response.data.fileUrl
+    ElMessage.success('上传成功')
+  } else {
+    ElMessage.error(response.message || '上传失败')
+    // 移除失败的文件
+    const index = fileList.value.findIndex(item => item.uid === file.uid)
+    if (index > -1) {
+      fileList.value.splice(index, 1)
+    }
+  }
+}
+
+const handleRemoveFile = (_file: UploadFile) => {
+  productForm.value.imageUrl = ''
+}
+
+const resetProductForm = () => {
+  productForm.value = {
+    name: '',
+    description: '',
+    pointsRequired: 1,
+    stockQuantity: 0,
+    category: '',
+    minEligibleLevel: 'D',
+    imageUrl: ''
+  }
+  fileList.value = []
+  if (productFormRef.value) {
+    productFormRef.value.clearValidate()
+  }
+}
+
+const openCreateDialog = () => {
+  editingProduct.value = null
+  resetProductForm()
+  showCreateDialog.value = true
+}
+
 const editProduct = (product: Product) => {
   editingProduct.value = product
-  productForm.value = { ...product }
+  productForm.value = {
+    name: product.name,
+    description: product.description,
+    pointsRequired: product.pointsRequired,
+    stockQuantity: product.stockQuantity,
+    category: product.category,
+    minEligibleLevel: convertEligibleLevelsToMinLevel(product.eligibleLevels),
+    imageUrl: product.imageUrl || ''
+  }
+  
+  // 设置文件列表
+  if (product.imageUrl) {
+    fileList.value = [{
+      name: '商品图片',
+      url: product.imageUrl,
+      uid: Date.now(),
+      status: 'success'
+    }]
+  } else {
+    fileList.value = []
+  }
+  
   showCreateDialog.value = true
 }
 
 const saveProduct = async () => {
+  if (!productFormRef.value) return
+  
+  try {
+    await productFormRef.value.validate()
+  } catch (error) {
+    ElMessage.error('请填写完整的商品信息')
+    return
+  }
+  
   saveLoading.value = true
   try {
     if (editingProduct.value) {
-      await request.put(`/product/update/${editingProduct.value.id}`, productForm.value)
+      await request.put(`/product/${editingProduct.value.id}`, productForm.value)
       ElMessage.success('更新商品成功')
     } else {
       await request.post('/product/create', productForm.value)
@@ -580,6 +670,7 @@ const saveProduct = async () => {
     
     showCreateDialog.value = false
     editingProduct.value = null
+    resetProductForm()
     loadProducts()
   } catch (error) {
     ElMessage.error(editingProduct.value ? '更新商品失败' : '创建商品失败')
@@ -596,7 +687,7 @@ const deleteProduct = async (product: Product) => {
       type: 'warning'
     })
     
-    await request.delete(`/product/delete/${product.id}`)
+    await request.delete(`/product/${product.id}`)
     ElMessage.success('删除成功')
     loadProducts()
   } catch (error) {
@@ -608,7 +699,7 @@ const deleteProduct = async (product: Product) => {
 
 const toggleStatus = async (product: Product) => {
   try {
-    await request.put(`/product/toggle-status/${product.id}`)
+    await request.put(`/product/${product.id}/toggle-status`)
     ElMessage.success('状态更新成功')
   } catch (error) {
     ElMessage.error('状态更新失败')
@@ -629,7 +720,7 @@ const updateStock = (product: Product) => {
 const confirmUpdateStock = async () => {
   stockLoading.value = true
   try {
-    await request.put(`/product/update-stock/${stockForm.value.productId}?quantity=${stockForm.value.newStock}`)
+    await request.put(`/product/${stockForm.value.productId}/stock?quantity=${stockForm.value.newStock}`)
     ElMessage.success('库存更新成功')
     showStockDialog.value = false
     loadProducts()
@@ -675,13 +766,54 @@ const confirmExchange = async () => {
 }
 
 // 辅助方法
+// 将旧的eligibleLevels数组转换为minEligibleLevel
+const convertEligibleLevelsToMinLevel = (eligibleLevels: string[]): string => {
+  if (!eligibleLevels || eligibleLevels.length === 0) return 'D'
+  
+  // 等级优先级：D < C < B < A < AA < AAA
+  const levelPriority = { 'D': 1, 'C': 2, 'B': 3, 'A': 4, 'AA': 5, 'AAA': 6 }
+  
+  // 找到最低等级
+  let minLevel = 'AAA'
+  let minPriority = 6
+  
+  for (const level of eligibleLevels) {
+    const priority = levelPriority[level as keyof typeof levelPriority] || 6
+    if (priority < minPriority) {
+      minPriority = priority
+      minLevel = level
+    }
+  }
+  
+  return minLevel
+}
+
+// 根据最低等级获取所有可兑换等级
+const getEligibleLevelsFromMinLevel = (minLevel: string): string[] => {
+  const allLevels = ['D', 'C', 'B', 'A', 'AA', 'AAA']
+  const minIndex = allLevels.indexOf(minLevel)
+  return minIndex >= 0 ? allLevels.slice(minIndex) : ['D']
+}
+
 const canExchange = (product: Product) => {
   if (!userProfile.value) return false
+  
+  // 如果产品有eligibleLevels属性（兼容旧数据），使用旧逻辑
+  if (product.eligibleLevels && product.eligibleLevels.length > 0) {
+    return product.isActive && 
+           product.stockQuantity > 0 && 
+           userProfile.value.rewardPoints >= product.pointsRequired &&
+           product.eligibleLevels.includes(userProfile.value.creditLevel)
+  }
+  
+  // 使用新的minEligibleLevel逻辑
+  const minLevel = product.minEligibleLevel || 'D'
+  const eligibleLevels = getEligibleLevelsFromMinLevel(minLevel)
   
   return product.isActive && 
          product.stockQuantity > 0 && 
          userProfile.value.rewardPoints >= product.pointsRequired &&
-         (product.eligibleLevels.length === 0 || product.eligibleLevels.includes(userProfile.value.creditLevel))
+         eligibleLevels.includes(userProfile.value.creditLevel)
 }
 
 const getExchangeText = (product: Product) => {
@@ -689,41 +821,56 @@ const getExchangeText = (product: Product) => {
   if (product.stockQuantity <= 0) return '已售罄'
   if (!userProfile.value) return '立即兑换'
   if (userProfile.value.rewardPoints < product.pointsRequired) return '积分不足'
-  if (product.eligibleLevels.length > 0 && !product.eligibleLevels.includes(userProfile.value.creditLevel)) {
+  
+  // 检查等级权限
+  let hasPermission = true
+  if (product.eligibleLevels && product.eligibleLevels.length > 0) {
+    // 兼容旧数据
+    hasPermission = product.eligibleLevels.includes(userProfile.value.creditLevel)
+  } else {
+    // 使用新的minEligibleLevel逻辑
+    const minLevel = product.minEligibleLevel || 'D'
+    const eligibleLevels = getEligibleLevelsFromMinLevel(minLevel)
+    hasPermission = eligibleLevels.includes(userProfile.value.creditLevel)
+  }
+  
+  if (!hasPermission) {
     return '等级不足'
   }
   return '立即兑换'
 }
 
-const getLevelColor = (levels: string[]) => {
-  if (!levels || levels.length === 0) return 'info'
-  if (levels.includes('AAA') || levels.includes('AA')) return 'success'
-  if (levels.includes('A') || levels.includes('B')) return 'primary'
-  return 'warning'
-}
-
-const getLevelText = (levels: string[]) => {
-  if (!levels || levels.length === 0) return '全员可兑换'
-  return levels.join('、') + '级可兑换'
-}
-
-const getStatusType = (status: string) => {
-  const statusMap = {
-    'SUCCESS': 'success',
-    'FAILED': 'danger',
-    'CANCELLED': 'warning'
+const getLevelColor = (product: Product) => {
+  let minLevel = 'D'
+  
+  if (product.eligibleLevels && product.eligibleLevels.length > 0) {
+    // 兼容旧数据
+    minLevel = convertEligibleLevelsToMinLevel(product.eligibleLevels)
+  } else {
+    minLevel = product.minEligibleLevel || 'D'
   }
-  return statusMap[status] || 'info'
+  
+  if (minLevel === 'AAA') return 'success'
+  if (minLevel === 'AA' || minLevel === 'A') return 'primary'
+  if (minLevel === 'B' || minLevel === 'C') return 'warning'
+  return 'info'
 }
 
-const getStatusText = (status: string) => {
-  const statusMap = {
-    'SUCCESS': '成功',
-    'FAILED': '失败',
-    'CANCELLED': '已取消'
+const getLevelText = (product: Product) => {
+  let minLevel = 'D'
+
+  if (product.eligibleLevels && product.eligibleLevels.length > 0) {
+    // 兼容旧数据
+    minLevel = convertEligibleLevelsToMinLevel(product.eligibleLevels)
+  } else {
+    minLevel = product.minEligibleLevel || 'D'
   }
-  return statusMap[status] || status
+  
+  if (minLevel === 'D') return '全员可兑换'
+  return `${minLevel}级及以上可兑换`
 }
+
+
 
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString('zh-CN')
@@ -848,11 +995,18 @@ onMounted(() => {
           .stock {
             font-size: 12px;
             color: #999;
-          }
-        }
+                  }
       }
     }
   }
+  
+  .form-tip {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 5px;
+    line-height: 1.4;
+  }
+}
   
   .table-card {
     .pagination {
@@ -929,5 +1083,17 @@ onMounted(() => {
       }
     }
   }
+}
+
+:deep(.el-upload-list--picture-card .el-upload-list__item) {
+  width: 80px;
+  height: 80px;
+}
+
+.upload-tip {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+  line-height: 1.4;
 }
 </style> 
