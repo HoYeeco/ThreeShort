@@ -47,7 +47,7 @@
         <el-form
           ref="loginFormRef"
           :model="loginForm"
-          :rules="rules"
+          :rules="loginRules"
           class="login-form"
           label-width="0"
           @keyup.enter="handleLogin"
@@ -74,27 +74,58 @@
             />
           </el-form-item>
           
-
-          
           <el-form-item>
-            <el-button
-              type="primary"
-              size="large"
-              class="login-button"
+            <el-button 
+              type="primary" 
+              class="login-btn"
               :loading="loading"
               @click="handleLogin"
             >
-              <span v-if="!loading">立即登录</span>
-              <span v-else>登录中...</span>
+              {{ loading ? '登录中...' : '登录' }}
             </el-button>
           </el-form-item>
         </el-form>
         
         <div class="login-footer">
-          <p>© 2024 社区诚信管理系统 All Rights Reserved</p>
+          <el-link type="primary" @click="showResetDialog = true">忘记密码？</el-link>
+          <el-link type="primary" @click="goToRegister">注册账号</el-link>
         </div>
       </div>
     </div>
+
+    <!-- 找回密码对话框 -->
+    <el-dialog v-model="showResetDialog" title="找回密码" width="400px">
+      <el-form :model="resetForm" :rules="resetRules" ref="resetFormRef" label-width="80px">
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="resetForm.username" placeholder="请输入用户名" />
+        </el-form-item>
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input 
+            v-model="resetForm.newPassword" 
+            type="password" 
+            placeholder="请输入新密码（6位以上）"
+            show-password
+          />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input 
+            v-model="resetForm.confirmPassword" 
+            type="password" 
+            placeholder="请再次输入新密码"
+            show-password
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="showResetDialog = false">取消</el-button>
+          <el-button type="primary" :loading="resetLoading" @click="handleResetPassword">
+            确定重置
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -106,6 +137,7 @@ import { ElMessage } from 'element-plus'
 import { User, Lock, House, Check } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { LoginForm } from '@/types/user'
+import request from '@/utils/request'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -116,7 +148,7 @@ const loginForm = reactive<LoginForm>({
   password: ''
 })
 
-const rules: FormRules = {
+const loginRules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
@@ -128,6 +160,39 @@ const rules: FormRules = {
 }
 
 const loading = ref(false)
+
+const showResetDialog = ref(false)
+const resetFormRef = ref<FormInstance>()
+const resetLoading = ref(false)
+
+const resetForm = reactive({
+  username: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const validateConfirmPassword = (_rule: any, value: any, callback: any) => {
+  if (value !== resetForm.newPassword) {
+    callback(new Error('两次输入的密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const resetRules: FormRules = {
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认密码', trigger: 'blur' },
+    { validator: validateConfirmPassword, trigger: 'blur' }
+  ]
+}
 
 const handleLogin = async () => {
   if (!loginFormRef.value || loading.value) return
@@ -150,6 +215,41 @@ const handleLogin = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleResetPassword = async () => {
+  if (!resetFormRef.value) return
+  
+  try {
+    await resetFormRef.value.validate()
+    
+    resetLoading.value = true
+    
+    // 重置密码
+    await request.post('/auth/reset-password', null, {
+      params: {
+        username: resetForm.username,
+        newPassword: resetForm.newPassword
+      }
+    })
+    
+    ElMessage.success('密码重置成功，请使用新密码登录')
+    showResetDialog.value = false
+    
+    // 清空重置表单
+    resetForm.username = ''
+    resetForm.newPassword = ''
+    resetForm.confirmPassword = ''
+    
+      } catch (error: any) {
+      ElMessage.error(error.message || '密码重置失败')
+  } finally {
+    resetLoading.value = false
+  }
+}
+
+const goToRegister = () => {
+  router.push('/register')
 }
 </script>
 
@@ -280,11 +380,11 @@ const handleLogin = async () => {
         }
       }
       
-              .login-form {
-          .el-form-item {
-            margin-bottom: 24px;
-          }
-        
+      .login-form {
+        .el-form-item {
+          margin-bottom: 24px;
+        }
+      
         .login-input {
           :deep(.el-input__wrapper) {
             border-radius: 12px;
@@ -302,7 +402,7 @@ const handleLogin = async () => {
           }
         }
         
-        .login-button {
+        .login-btn {
           width: 100%;
           height: 50px;
           border-radius: 12px;
@@ -327,9 +427,14 @@ const handleLogin = async () => {
         text-align: center;
         margin-top: 30px;
         
-        p {
-          color: #999;
-          font-size: 0.8rem;
+        .el-link {
+          color: #667eea;
+          font-size: 0.9rem;
+          margin: 0 10px;
+          
+          &:hover {
+            text-decoration: underline;
+          }
         }
       }
     }

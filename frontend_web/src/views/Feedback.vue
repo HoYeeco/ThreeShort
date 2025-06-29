@@ -150,7 +150,7 @@
           <el-upload
             ref="uploadRef"
             :action="uploadAction"
-            :headers="uploadHeaders"
+            :data="uploadData"
             :before-upload="beforeUpload"
             :on-success="handleUploadSuccess"
             :on-remove="handleRemoveFile"
@@ -379,9 +379,10 @@ const uploadAction = computed(() => {
   return '/api/files/upload'
 })
 
-const uploadHeaders = computed(() => {
+const uploadData = computed(() => {
   return {
-    'Content-Type': 'multipart/form-data'
+    businessType: 'FEEDBACK',
+    userId: 1
   }
 })
 
