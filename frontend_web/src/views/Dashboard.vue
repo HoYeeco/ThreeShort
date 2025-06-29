@@ -118,83 +118,6 @@
         </el-col>
       </template>
 
-      <!-- 普通居民统计数据 -->
-      <template v-else>
-        <el-col :span="6">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <div class="stat-number">{{ userProfile.currentScore || 0 }}</div>
-              <div class="stat-label">当前信用分</div>
-            </div>
-            <div class="stat-icon">
-              <el-icon size="40" color="#409EFF"><Star /></el-icon>
-            </div>
-          </el-card>
-        </el-col>
-        
-        <el-col :span="6">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <div class="stat-number">{{ userProfile.creditLevel || 'D' }}</div>
-              <div class="stat-label">信用等级</div>
-            </div>
-            <div class="stat-icon">
-              <el-icon size="40" color="#67C23A"><Medal /></el-icon>
-            </div>
-          </el-card>
-        </el-col>
-        
-        <el-col :span="6">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <div class="stat-number">{{ userProfile.rewardPoints || 0 }}</div>
-              <div class="stat-label">奖励积分</div>
-            </div>
-            <div class="stat-icon">
-              <el-icon size="40" color="#E6A23C"><Coin /></el-icon>
-            </div>
-          </el-card>
-        </el-col>
-        
-        <el-col :span="6">
-          <el-card class="stat-card">
-            <div class="stat-content">
-              <div class="stat-number">{{ userProfile.totalReports || 0 }}</div>
-              <div class="stat-label">我的上报</div>
-            </div>
-            <div class="stat-icon">
-              <el-icon size="40" color="#F56C6C"><Document /></el-icon>
-            </div>
-          </el-card>
-        </el-col>
-      </template>
-    </el-row>
-    
-    <el-row :gutter="20" style="margin-top: 20px;">
-      <el-col :span="12">
-        <el-card>
-          <template #header>
-            <span>系统公告</span>
-          </template>
-          <div class="notice-content">
-            <el-alert
-              title="系统维护通知"
-              type="info"
-              description="系统将于本周日凌晨2:00-4:00进行维护升级，请提前安排相关工作。"
-              show-icon
-              :closable="false"
-            />
-            <br />
-            <el-alert
-              title="功能更新"
-              type="success"
-              description="个人信息管理功能已上线，用户可以自主修改基本信息。"
-              show-icon
-              :closable="false"
-            />
-          </div>
-        </el-card>
-      </el-col>
       
       <el-col :span="12">
         <el-card>
@@ -245,34 +168,6 @@
               <el-button type="danger" @click="$router.push('/maintenance/system')">
                 <el-icon><Monitor /></el-icon>
                 系统监控
-              </el-button>
-            </template>
-
-            <!-- 普通居民专用功能 -->
-            <template v-else>
-              <el-button type="warning" @click="$router.push('/credit-reports')">
-                <el-icon><Document /></el-icon>
-                信用上报
-              </el-button>
-              <el-button type="info" @click="$router.push('/credit-profiles')">
-                <el-icon><Star /></el-icon>
-                我的信用
-              </el-button>
-              <el-button type="danger" @click="$router.push('/products')">
-                <el-icon><ShoppingBag /></el-icon>
-                积分商城
-              </el-button>
-              <el-button type="default" @click="$router.push('/exchange-records')">
-                <el-icon><List /></el-icon>
-                兑换记录
-              </el-button>
-              <el-button type="success" @click="$router.push('/feedback')">
-                <el-icon><ChatLineSquare /></el-icon>
-                意见反馈
-              </el-button>
-              <el-button type="primary" @click="$router.push('/agreements')">
-                <el-icon><Document /></el-icon>
-                学习公约
               </el-button>
             </template>
           </div>
