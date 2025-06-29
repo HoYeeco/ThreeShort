@@ -1,3 +1,4 @@
+
 package com.community.credit.config;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;

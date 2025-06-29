@@ -47,4 +47,3 @@ public class WebConfig implements WebMvcConfigurer {
                     "/api/v3/api-docs/**" // 排除API文档
                 );
     }
-} 
