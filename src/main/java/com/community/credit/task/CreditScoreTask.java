@@ -39,20 +39,20 @@ public class CreditScoreTask {
     }
 
     /**
-     * 每天凌晨3点重新计算所有用户的信用分数
+     * 每天凌晨3点重新计算所有用户的信用等级
      * 确保数据的准确性和一致性
      */
     @Scheduled(cron = "0 0 3 * * *")
     public void recalculateAllUserCredit() {
         try {
-            log.info("开始重新计算所有用户信用分数");
+            log.info("开始重新计算所有用户信用等级");
             
-            // 这里可以根据需要决定是否每天都重新计算
-            // 为了减少系统负载，可以改为每周或每月执行一次
+            // 批量更新所有用户的信用等级
+            userCreditProfileService.batchUpdateCreditLevels();
             
-            log.info("所有用户信用分数重新计算完成");
+            log.info("所有用户信用等级重新计算完成");
         } catch (Exception e) {
-            log.error("重新计算用户信用分数失败", e);
+            log.error("重新计算用户信用等级失败", e);
         }
     }
 } 
