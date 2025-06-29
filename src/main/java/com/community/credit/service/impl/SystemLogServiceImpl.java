@@ -1,6 +1,9 @@
 package com.community.credit.service.impl;
 
 import cn.hutool.http.HttpUtil;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.community.credit.entity.SystemLog;
 import com.community.credit.mapper.SystemLogMapper;
@@ -11,6 +14,11 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 系统日志服务实现类
@@ -56,22 +64,20 @@ public class SystemLogServiceImpl extends ServiceImpl<SystemLogMapper, SystemLog
     @Override
     @Async
     public void recordFailureLog(Integer userId, String operationType, String operationDesc,
-                                String requestMethod, String requestUrl, String requestParams, String errorMessage) {
-        try {
-            SystemLog systemLog = new SystemLog();
-            systemLog.setUserId(userId);
-            systemLog.setOperationType(operationType);
-            systemLog.setOperationDesc(operationDesc);
-            systemLog.setRequestMethod(requestMethod);
-            systemLog.setRequestUrl(requestUrl);
-            systemLog.setRequestParams(requestParams);
-            systemLog.setErrorMessage(errorMessage);
-            systemLog.setStatus(SystemLog.LogStatus.FAILED);
-            
-            save(systemLog);
-        } catch (Exception e) {
-            log.error("记录失败日志时发生异常", e);
-        }
+                                 String requestMethod, String requestUrl, String requestParams, String errorMessage) {
+        SystemLog log = new SystemLog();
+        log.setUserId(userId);
+        log.setOperationType(operationType);
+        log.setOperationDesc(operationDesc);
+        log.setRequestMethod(requestMethod);
+        log.setRequestUrl(requestUrl);
+        log.setRequestParams(requestParams);
+        log.setResponseData(errorMessage);
+        log.setStatus(SystemLog.LogStatus.FAILED);
+        log.setErrorMessage(errorMessage);
+        log.setCreatedTime(LocalDateTime.now());
+
+        save(log);
     }
 
     /**
@@ -121,5 +127,81 @@ public class SystemLogServiceImpl extends ServiceImpl<SystemLogMapper, SystemLog
             ipAddress = ipAddress.split(",")[0].trim();
         }
         return ipAddress;
+    }
+
+    @Override
+    public Map<String, Object> getTaskExecutionHistory(String taskName, Integer page, Integer size) {
+        Map<String, Object> result = new HashMap<>();
+        
+        // 构建查询条件
+        QueryWrapper<SystemLog> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("operation_type", "TASK_EXECUTION");
+        
+        if (taskName != null && !taskName.isEmpty()) {
+            queryWrapper.like("operation_desc", taskName);
+        }
+        
+        queryWrapper.orderByDesc("created_time");
+        
+        // 分页查询
+        Page<SystemLog> pageRequest = new Page<>(page, size);
+        IPage<SystemLog> pageResult = this.page(pageRequest, queryWrapper);
+        
+        result.put("records", pageResult.getRecords());
+        result.put("total", pageResult.getTotal());
+        result.put("current", pageResult.getCurrent());
+        result.put("size", pageResult.getSize());
+        result.put("pages", pageResult.getPages());
+        
+        return result;
+    }
+
+    @Override
+    public Integer getTodayTaskExecutions() {
+        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        
+        QueryWrapper<SystemLog> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("operation_type", "TASK_EXECUTION");
+        queryWrapper.ge("created_time", todayStart);
+        
+        return Math.toIntExact(this.count(queryWrapper));
+    }
+
+    @Override
+    public Integer getWeekTaskExecutions() {
+        LocalDateTime weekStart = LocalDateTime.now().minusDays(7);
+        
+        QueryWrapper<SystemLog> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("operation_type", "TASK_EXECUTION");
+        queryWrapper.ge("created_time", weekStart);
+        
+        return Math.toIntExact(this.count(queryWrapper));
+    }
+
+    @Override
+    public Integer getMonthTaskExecutions() {
+        LocalDateTime monthStart = LocalDateTime.now().minusDays(30);
+        
+        QueryWrapper<SystemLog> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("operation_type", "TASK_EXECUTION");
+        queryWrapper.ge("created_time", monthStart);
+        
+        return Math.toIntExact(this.count(queryWrapper));
+    }
+
+    @Override
+    public String getLastTaskExecutionTime(String taskType) {
+        QueryWrapper<SystemLog> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("operation_type", "TASK_EXECUTION");
+        queryWrapper.like("operation_desc", taskType);
+        queryWrapper.orderByDesc("created_time");
+        queryWrapper.last("LIMIT 1");
+        
+        SystemLog lastLog = this.getOne(queryWrapper);
+        if (lastLog != null && lastLog.getCreatedTime() != null) {
+            return lastLog.getCreatedTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        }
+        
+        return "暂无执行记录";
     }
 } 

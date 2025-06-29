@@ -68,13 +68,17 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
     public void updateCreditScore(Integer userId, Integer scoreChange, String reason) {
         UserCreditProfile profile = getOrCreateUserProfile(userId);
         
+        // 记录原始分数用于日志
+        Integer originalScore = profile.getCurrentScore();
+        
         // 计算新分数
-        Integer newScore = profile.getCurrentScore() + scoreChange;
+        Integer newScore = originalScore + scoreChange;
         if (newScore < 0) {
             newScore = 0;
         }
-        if (newScore > 1000) {
-            newScore = 1000;
+        // 修改信用分上限为100分
+        if (newScore > 100) {
+            newScore = 100;
         }
         
         // 更新分数和等级
@@ -84,9 +88,13 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
         
         updateById(profile);
         
+        // 清除缓存，确保数据一致性
+        String cacheKey = "user:credit:profile:" + userId;
+        redisTemplate.delete(cacheKey);
+        
         // 记录日志
         log.info("用户 {} 信用分数更新: {} -> {}, 原因: {}", 
-            userId, profile.getCurrentScore() - scoreChange, newScore, reason);
+            userId, originalScore, newScore, reason);
     }
 
     @Override
@@ -96,9 +104,9 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
 
     @Override
     public String calculateCreditLevel(Integer currentScore) {
-        if (currentScore >= 120) {
+        if (currentScore >= 100) {
             return "AAA";
-        } else if (currentScore >= 100) {
+        } else if (currentScore >= 90) {
             return "AA";
         } else if (currentScore >= 80) {
             return "A";
@@ -116,7 +124,10 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
     public void updateRewardPoints(Integer userId, Integer pointsChange, String reason) {
         UserCreditProfile profile = getOrCreateUserProfile(userId);
         
-        Integer newPoints = profile.getRewardPoints() + pointsChange;
+        // 记录原始积分用于日志
+        Integer originalPoints = profile.getRewardPoints();
+        
+        Integer newPoints = originalPoints + pointsChange;
         if (newPoints < 0) {
             newPoints = 0;
         }
@@ -124,8 +135,12 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
         profile.setRewardPoints(newPoints);
         updateById(profile);
         
+        // 清除缓存，确保数据一致性
+        String cacheKey = "user:credit:profile:" + userId;
+        redisTemplate.delete(cacheKey);
+        
         log.info("用户 {} 奖励积分更新: {} -> {}, 原因: {}", 
-            userId, profile.getRewardPoints() - pointsChange, newPoints, reason);
+            userId, originalPoints, newPoints, reason);
     }
 
     @Override
@@ -238,6 +253,10 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
         
         updateById(profile);
         
+        // 清除缓存，确保数据一致性
+        String cacheKey = "user:credit:profile:" + userId;
+        redisTemplate.delete(cacheKey);
+        
         log.info("用户 {} 信用分数重新计算完成", userId);
     }
 
@@ -264,6 +283,13 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
 
     @Override
     public List<Map<String, Object>> getUserScoreHistory(Integer userId) {
+        // 首先生成或更新当前的实时评分记录，确保历史记录包含最新数据
+        try {
+            creditScoreRecordService.generateCurrentScoreRecord(userId);
+        } catch (Exception e) {
+            log.warn("生成用户 {} 的实时评分记录失败: {}", userId, e.getMessage());
+        }
+        
         return creditScoreRecordService.getUserScoreTrend(userId);
     }
     
@@ -297,6 +323,24 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
             return new ArrayList<>();
         }
         return this.listByIds(userIds);
+    }
+
+    @Override
+    public Map<String, Object> getUserCreditProfileList(Integer page, Integer size, String keyword, String creditLevel) {
+        // 使用Mapper直接查询带用户信息的档案列表
+        List<UserCreditProfile> records = this.baseMapper.getUserCreditProfileListWithUserInfo(
+            (page - 1) * size, size, keyword, creditLevel);
+        
+        // 获取总数
+        Long total = this.baseMapper.getUserCreditProfileCount(keyword, creditLevel);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("records", records);
+        result.put("total", total);
+        result.put("current", page);
+        result.put("size", size);
+        
+        return result;
     }
 
     @Override
@@ -350,5 +394,19 @@ public class UserCreditProfileServiceImpl extends ServiceImpl<UserCreditProfileM
         }
         
         return true;
+    }
+
+    @Override
+    public long getHighCreditUserCount() {
+        QueryWrapper<UserCreditProfile> queryWrapper = new QueryWrapper<>();
+        queryWrapper.in("credit_level", "AA", "AAA");
+        return this.count(queryWrapper);
+    }
+
+    @Override
+    public void clearUserProfileCache(Integer userId) {
+        String cacheKey = "user:credit:profile:" + userId;
+        redisTemplate.delete(cacheKey);
+        log.debug("清除用户 {} 的信用档案缓存", userId);
     }
 } 

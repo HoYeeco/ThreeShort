@@ -12,10 +12,15 @@ import com.community.credit.service.PointExchangeRecordService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.format.DateTimeFormatter;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * 积分兑换记录服务实现类
@@ -134,5 +139,70 @@ public class PointExchangeRecordServiceImpl extends ServiceImpl<PointExchangeRec
     @Override
     public List<Map<String, Object>> getPopularProducts(Integer limit) {
         return baseMapper.getPopularProducts(limit);
+    }
+
+    @Override
+    @Transactional
+    public void deleteRecord(Integer recordId) {
+        PointExchangeRecord record = getById(recordId);
+        if (record == null) {
+            throw new RuntimeException("兑换记录不存在");
+        }
+        
+        // 只允许删除失败或已取消的记录
+        if (record.getStatus() == PointExchangeRecord.ExchangeStatus.SUCCESS) {
+            throw new RuntimeException("成功的兑换记录不能删除");
+        }
+        
+        removeById(recordId);
+        log.info("删除兑换记录成功，记录ID: {}", recordId);
+    }
+
+    @Override
+    public void exportRecords(ExchangeRecordQueryRequest request, HttpServletResponse response) throws IOException {
+        // 设置响应头
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=\"exchange_records.csv\"");
+        response.setCharacterEncoding("UTF-8");
+        
+        // 查询数据
+        IPage<PointExchangeRecord> page = getExchangeRecordList(request);
+        List<PointExchangeRecord> records = page.getRecords();
+        
+        // 写入CSV内容
+        PrintWriter writer = response.getWriter();
+        
+        // 写入BOM以支持Excel正确显示中文
+        writer.write('\ufeff');
+        
+        // 写入表头
+        writer.println("记录ID,用户ID,商品名称,兑换数量,消耗积分,状态,兑换时间,备注");
+        
+        // 写入数据
+        for (PointExchangeRecord record : records) {
+            writer.printf("%d,%d,\"%s\",%d,%d,\"%s\",\"%s\",\"%s\"%n",
+                record.getId(),
+                record.getUserId(),
+                record.getProductName() != null ? record.getProductName() : "",
+                record.getQuantity(),
+                record.getPointsUsed(),
+                getStatusText(record.getStatus()),
+                record.getExchangeTime() != null ? record.getExchangeTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) : "",
+                record.getRemarks() != null ? record.getRemarks() : ""
+            );
+        }
+        
+        writer.flush();
+        log.info("导出兑换记录成功，共{}条记录", records.size());
+    }
+    
+    private String getStatusText(PointExchangeRecord.ExchangeStatus status) {
+        if (status == null) return "";
+        switch (status) {
+            case SUCCESS: return "成功";
+            case FAILED: return "失败";
+            case CANCELLED: return "已取消";
+            default: return status.toString();
+        }
     }
 } 
