@@ -22,10 +22,8 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = false)  // 临时禁用方法级安全
+@EnableMethodSecurity(prePostEnabled = true)  // 启用方法级安全
 public class SecurityConfig {
-
-
 
     /**
      * CORS配置
@@ -45,15 +43,19 @@ public class SecurityConfig {
     }
 
     /**
-     * 安全过滤器链 - 临时简化版，禁用方法级安全
+     * 安全过滤器链 - 基于Session的简化认证
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
-                // 允许所有请求，去掉认证
+                // 允许登录、注册等公开接口
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/files/**").permitAll()
+                .requestMatchers("/api/upload/**").permitAll()
+                // 其他接口需要通过拦截器进行权限控制
                 .anyRequest().permitAll()
             );
 

@@ -39,11 +39,9 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(roleInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
-                    "/api/auth/**",  // 排除认证相关接口
-                    "/api/files/**", // 排除文件访问接口
-                    "/api/agreements/**", // 排除公约相关接口（暂时允许无需登录访问）
-                    "/api/doc.html", // 排除Swagger文档
-                    "/api/swagger-ui/**", // 排除Swagger UI
-                    "/api/v3/api-docs/**" // 排除API文档
+                        "/api/auth/**",
+                        "/api/files/**",
+                        "/api/upload/**"
                 );
     }
+} 
