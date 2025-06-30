@@ -1,3 +1,4 @@
+
 package com.community.credit.security;
 
 import com.community.credit.entity.User;
@@ -28,4 +29,5 @@ public @interface RequireRole {
      * 当设置为true时，用户可以访问自己的资源，即使角色不匹配
      */
     boolean allowSelf() default false;
+
 } 

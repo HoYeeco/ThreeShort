@@ -1,3 +1,4 @@
+
 package com.community.credit.validation;
 
 import jakarta.validation.Constraint;
@@ -26,4 +27,5 @@ public @interface IdCard {
      * 是否允许为空
      */
     boolean allowEmpty() default true;
+
 } 

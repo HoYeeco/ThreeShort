@@ -1,3 +1,4 @@
+
 package com.community.credit.config;
 
 import com.community.credit.security.RoleInterceptor;
@@ -44,4 +45,5 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/upload/**"
                 );
     }
+
 } 

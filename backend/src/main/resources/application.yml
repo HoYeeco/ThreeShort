@@ -15,7 +15,6 @@ spring:
     url: jdbc:mysql://localhost:3306/sqcx?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
     username: root
     password: 123456
-
     druid:
       # 初始连接数
       initial-size: 10
@@ -91,13 +90,12 @@ spring:
 
     default-property-inclusion: ALWAYS
 
-
 # MyBatis Plus配置
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
   type-aliases-package: com.community.credit.entity
-
   type-handlers-package: com.community.credit.config
+
 
   global-config:
     db-config:
@@ -165,3 +163,4 @@ knife4j:
     license-url: https://www.apache.org/licenses/LICENSE-2.0
   setting:
     language: zh_cn 
+

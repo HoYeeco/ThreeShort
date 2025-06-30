@@ -1,3 +1,4 @@
+
 package com.community.credit.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -65,4 +66,5 @@ public class ListStringTypeHandler extends BaseTypeHandler<List<String>> {
             return new ArrayList<>();
         }
     }
+
 } 

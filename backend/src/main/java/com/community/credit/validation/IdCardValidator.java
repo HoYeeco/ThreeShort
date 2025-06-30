@@ -1,3 +1,4 @@
+
 package com.community.credit.validation;
 
 import jakarta.validation.ConstraintValidator;
@@ -29,4 +30,5 @@ public class IdCardValidator implements ConstraintValidator<IdCard, String> {
         // 使用工具类验证身份证号码
         return com.community.credit.utils.IdCardValidator.validate(value);
     }
+
 } 
