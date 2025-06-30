@@ -15,7 +15,7 @@
       <div class="search-form">
         <el-form :inline="true" :model="searchForm" class="demo-form-inline">
           <el-form-item label="状态">
-            <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
+            <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 200px">
               <el-option label="待审核" value="PENDING" />
               <el-option label="已通过" value="APPROVED" />
               <el-option label="已拒绝" value="REJECTED" />
@@ -23,7 +23,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="行为类型">
-            <el-select v-model="searchForm.behaviorTypeId" placeholder="请选择行为类型" clearable>
+            <el-select v-model="searchForm.behaviorTypeId" placeholder="请选择行为类型" clearable style="width: 200px">
               <el-option
                 v-for="type in behaviorTypes"
                 :key="type.id"
@@ -628,4 +628,4 @@ onMounted(() => {
     }
   }
 }
-</style> 
+</style>
