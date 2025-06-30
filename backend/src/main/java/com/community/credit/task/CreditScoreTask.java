@@ -1,3 +1,4 @@
+
 package com.community.credit.task;
 
 import com.community.credit.service.UserCreditProfileService;
@@ -55,4 +56,5 @@ public class CreditScoreTask {
             log.error("重新计算用户信用分数失败", e);
         }
     }
+
 } 

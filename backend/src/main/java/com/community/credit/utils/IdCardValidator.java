@@ -1,3 +1,4 @@
+
 package com.community.credit.utils;
 
 import java.util.regex.Pattern;
@@ -130,4 +131,5 @@ public class IdCardValidator {
         int remainder = sum % 11;
         return CHECK_CODES[remainder];
     }
+
 } 

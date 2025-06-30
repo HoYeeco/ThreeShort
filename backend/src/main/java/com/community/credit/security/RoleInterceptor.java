@@ -1,3 +1,4 @@
+
 package com.community.credit.security;
 
 import com.community.credit.entity.User;
@@ -122,4 +123,5 @@ public class RoleInterceptor implements HandlerInterceptor {
         response.getWriter().write(objectMapper.writeValueAsString(result));
         return false;
     }
+
 } 

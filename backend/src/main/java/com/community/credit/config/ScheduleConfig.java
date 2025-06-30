@@ -1,3 +1,4 @@
+
 package com.community.credit.config;
 
 import org.springframework.context.annotation.Configuration;
@@ -13,4 +14,5 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class ScheduleConfig {
     // 启用Spring定时任务功能
+
 } 

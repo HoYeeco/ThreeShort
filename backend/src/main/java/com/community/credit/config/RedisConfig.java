@@ -1,3 +1,4 @@
+
 package com.community.credit.config;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
@@ -53,4 +54,5 @@ public class RedisConfig {
         template.afterPropertiesSet();
         return template;
     }
+
 } 

@@ -1,0 +1,174 @@
+-- 创建居民信息表
+CREATE TABLE `t_resident` (
+  `resident_id` varchar(32) NOT NULL COMMENT '居民唯一标识',
+  `account` varchar(50) NOT NULL COMMENT '登录账号',
+  `password` varchar(100) NOT NULL COMMENT '加密密码',
+  `name` varchar(50) NOT NULL COMMENT '居民姓名',
+  `id_card` varchar(18) NOT NULL COMMENT '身份证号',
+  `phone` varchar(20) NOT NULL COMMENT '联系电话',
+  `address` varchar(200) DEFAULT NULL COMMENT '居住地址',
+  `register_time` datetime NOT NULL COMMENT '注册时间',
+  `last_login` datetime DEFAULT NULL COMMENT '最后登录时间',
+  `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '账户状态(1-正常 0-禁用)',
+  PRIMARY KEY (`resident_id`),
+  UNIQUE KEY `idx_account` (`account`),
+  UNIQUE KEY `idx_id_card` (`id_card`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='居民信息表';
+
+-- 创建信用行为记录表
+CREATE TABLE `t_credit_behavior` (
+  `behavior_id` varchar(32) NOT NULL COMMENT '行为记录唯一标识',
+  `resident_id` varchar(32) NOT NULL COMMENT '关联居民ID',
+  `behavior_type` tinyint(1) NOT NULL COMMENT '行为类型(1-守信 2-失信)',
+  `behavior_desc` varchar(500) NOT NULL COMMENT '行为描述',
+  `category` varchar(50) NOT NULL COMMENT '行为分类',
+  `proof_material` varchar(200) DEFAULT NULL COMMENT '证明材料存储路径',
+  `report_time` datetime NOT NULL COMMENT '上报时间',
+  `report_status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '上报状态(1-待审核 2-通过 3-拒绝)',
+  `create_time` datetime NOT NULL COMMENT '记录创建时间',
+  PRIMARY KEY (`behavior_id`),
+  KEY `idx_resident_id` (`resident_id`),
+  KEY `idx_report_status` (`report_status`),
+  CONSTRAINT `fk_behavior_resident` FOREIGN KEY (`resident_id`) REFERENCES `t_resident` (`resident_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='信用行为记录表';
+
+-- 创建行为审核表
+CREATE TABLE `t_behavior_audit` (
+  `audit_id` varchar(32) NOT NULL COMMENT '审核记录唯一标识',
+  `behavior_id` varchar(32) NOT NULL COMMENT '关联行为记录ID',
+  `audit_type` tinyint(1) NOT NULL COMMENT '审核类型(1-AI初审 2-人工审核)',
+  `audit_status` tinyint(1) NOT NULL COMMENT '审核结果(1-通过 0-拒绝)',
+  `audit_opinion` varchar(500) DEFAULT NULL COMMENT '审核意见',
+  `auditor` varchar(50) DEFAULT NULL COMMENT '审核人员',
+  `audit_time` datetime NOT NULL COMMENT '审核时间',
+  PRIMARY KEY (`audit_id`),
+  KEY `idx_behavior_id` (`behavior_id`),
+  CONSTRAINT `fk_audit_behavior` FOREIGN KEY (`behavior_id`) REFERENCES `t_credit_behavior` (`behavior_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='行为审核表';
+
+-- 创建信用评分规则表
+CREATE TABLE `t_credit_rule` (
+  `rule_id` varchar(32) NOT NULL COMMENT '规则唯一标识',
+  `category` varchar(50) NOT NULL COMMENT '行为分类',
+  `behavior_type` tinyint(1) NOT NULL COMMENT '行为类型(1-守信 2-失信)',
+  `score_value` int NOT NULL COMMENT '分值(正数-加分 负数-扣分)',
+  `weight` decimal(5,2) DEFAULT NULL COMMENT '权重系数',
+  `effective_time` datetime NOT NULL COMMENT '生效时间',
+  `expire_time` datetime DEFAULT NULL COMMENT '失效时间',
+  `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '规则状态(1-生效 0-失效)',
+  PRIMARY KEY (`rule_id`),
+  KEY `idx_category_status` (`category`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='信用评分规则表';
+
+-- 创建信用积分变动表
+CREATE TABLE `t_credit_score_change` (
+  `change_id` varchar(32) NOT NULL COMMENT '变动记录唯一标识',
+  `resident_id` varchar(32) NOT NULL COMMENT '关联居民ID',
+  `behavior_id` varchar(32) DEFAULT NULL COMMENT '关联行为记录ID',
+  `rule_id` varchar(32) DEFAULT NULL COMMENT '关联评分规则ID',
+  `old_score` int NOT NULL COMMENT '变动前积分',
+  `change_score` int NOT NULL COMMENT '变动分值(正数-增加 负数-减少)',
+  `new_score` int NOT NULL COMMENT '变动后积分',
+  `change_reason` varchar(500) NOT NULL COMMENT '变动原因',
+  `change_time` datetime NOT NULL COMMENT '变动时间',
+  `change_type` tinyint(1) NOT NULL COMMENT '变动类型(1-系统自动 2-人工调整)',
+  PRIMARY KEY (`change_id`),
+  KEY `idx_resident_time` (`resident_id`,`change_time`),
+  KEY `idx_behavior_id` (`behavior_id`),
+  KEY `idx_rule_id` (`rule_id`),
+  CONSTRAINT `fk_change_behavior` FOREIGN KEY (`behavior_id`) REFERENCES `t_credit_behavior` (`behavior_id`),
+  CONSTRAINT `fk_change_rule` FOREIGN KEY (`rule_id`) REFERENCES `t_credit_rule` (`rule_id`),
+  CONSTRAINT `fk_change_resident` FOREIGN KEY (`resident_id`) REFERENCES `t_resident` (`resident_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='信用积分变动表';
+
+-- 创建信用等级表
+CREATE TABLE `t_credit_level` (
+  `level_id` varchar(32) NOT NULL COMMENT '等级唯一标识',
+  `level_name` varchar(50) NOT NULL COMMENT '等级名称',
+  `score_min` int NOT NULL COMMENT '最低积分',
+  `score_max` int DEFAULT NULL COMMENT '最高积分',
+  `level_desc` varchar(500) DEFAULT NULL COMMENT '等级说明',
+  `priority` int NOT NULL COMMENT '等级优先级',
+  PRIMARY KEY (`level_id`),
+  UNIQUE KEY `idx_score_range` (`score_min`,`score_max`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='信用等级表';
+
+-- 创建居民信用档案表
+CREATE TABLE `t_resident_credit_archive` (
+  `archive_id` varchar(32) NOT NULL COMMENT '档案唯一标识',
+  `resident_id` varchar(32) NOT NULL COMMENT '关联居民ID',
+  `current_score` int NOT NULL COMMENT '当前积分',
+  `current_level` varchar(32) NOT NULL COMMENT '关联当前等级ID',
+  `score_trend` text COMMENT '积分趋势数据',
+  `good_behavior` int NOT NULL DEFAULT 0 COMMENT '累计守信行为次数',
+  `bad_behavior` int NOT NULL DEFAULT 0 COMMENT '累计失信行为次数',
+  `last_update` datetime NOT NULL COMMENT '最后更新时间',
+  `create_time` datetime NOT NULL COMMENT '档案创建时间',
+  PRIMARY KEY (`archive_id`),
+  UNIQUE KEY `idx_resident_id` (`resident_id`),
+  KEY `idx_current_level` (`current_level`),
+  CONSTRAINT `fk_archive_level` FOREIGN KEY (`current_level`) REFERENCES `t_credit_level` (`level_id`),
+  CONSTRAINT `fk_archive_resident` FOREIGN KEY (`resident_id`) REFERENCES `t_resident` (`resident_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='居民信用档案表';
+
+-- 创建居民公约学习表
+CREATE TABLE `t_convention_learning` (
+  `learn_id` varchar(32) NOT NULL COMMENT '学习记录唯一标识',
+  `resident_id` varchar(32) NOT NULL COMMENT '关联居民ID',
+  `learn_content` varchar(100) NOT NULL COMMENT '学习内容',
+  `learn_type` tinyint(1) NOT NULL COMMENT '学习类型(1-在线 2-线下)',
+  `learn_material` varchar(200) DEFAULT NULL COMMENT '学习材料路径',
+  `learn_time` datetime NOT NULL COMMENT '学习时间',
+  `learn_status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '学习状态(1-完成 0-未完成)',
+  `create_time` datetime NOT NULL COMMENT '记录创建时间',
+  PRIMARY KEY (`learn_id`),
+  KEY `idx_resident_id` (`resident_id`),
+  KEY `idx_learn_status` (`learn_status`),
+  CONSTRAINT `fk_learning_resident` FOREIGN KEY (`resident_id`) REFERENCES `t_resident` (`resident_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='居民公约学习表';
+
+-- 创建学习考核表
+CREATE TABLE `t_learning_assessment` (
+  `assess_id` varchar(32) NOT NULL COMMENT '考核记录唯一标识',
+  `learn_id` varchar(32) NOT NULL COMMENT '关联学习记录ID',
+  `resident_id` varchar(32) NOT NULL COMMENT '关联居民ID',
+  `question_count` int NOT NULL COMMENT '题目数量',
+  `correct_count` int NOT NULL COMMENT '正确数量',
+  `score` int NOT NULL COMMENT '考核得分',
+  `assess_result` tinyint(1) NOT NULL COMMENT '考核结果(1-通过 0-未通过)',
+  `assess_time` datetime NOT NULL COMMENT '考核时间',
+  `create_time` datetime NOT NULL COMMENT '记录创建时间',
+  PRIMARY KEY (`assess_id`),
+  KEY `idx_learn_id` (`learn_id`),
+  KEY `idx_resident_id` (`resident_id`),
+  CONSTRAINT `fk_assessment_learning` FOREIGN KEY (`learn_id`) REFERENCES `t_convention_learning` (`learn_id`),
+  CONSTRAINT `fk_assessment_resident` FOREIGN KEY (`resident_id`) REFERENCES `t_resident` (`resident_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学习考核表';
+
+-- 创建申诉记录表
+CREATE TABLE `t_appeal_record` (
+  `appeal_id` varchar(32) NOT NULL COMMENT '申诉记录唯一标识',
+  `resident_id` varchar(32) NOT NULL COMMENT '申诉人ID',
+  `target_type` tinyint(1) NOT NULL COMMENT '申诉对象类型(1-行为审核 2-信用评分)',
+  `target_id` varchar(32) NOT NULL COMMENT '关联对象ID',
+  `appeal_reason` text NOT NULL COMMENT '申诉理由',
+  `appeal_material` varchar(200) DEFAULT NULL COMMENT '申诉材料路径',
+  `appeal_status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '申诉状态(1-待处理 2-处理中 3-已处理)',
+  `handle_opinion` varchar(500) DEFAULT NULL COMMENT '处理意见',
+  `handle_person` varchar(50) DEFAULT NULL COMMENT '处理人员',
+  `handle_time` datetime DEFAULT NULL COMMENT '处理时间',
+  `create_time` datetime NOT NULL COMMENT '申诉创建时间',
+  PRIMARY KEY (`appeal_id`),
+  KEY `idx_resident_id` (`resident_id`),
+  KEY `idx_appeal_status` (`appeal_status`),
+  CONSTRAINT `fk_appeal_resident` FOREIGN KEY (`resident_id`) REFERENCES `t_resident` (`resident_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='申诉记录表';
+
+-- 初始化信用等级数据
+INSERT INTO `t_credit_level` (`level_id`, `level_name`, `score_min`, `score_max`, `level_desc`, `priority`)
+VALUES
+('LEVEL001', '诚信标兵', 90, NULL, '信用表现优秀，积极参与社区各项建设与服务，无失信行为记录', 1),
+('LEVEL002', '守信居民', 70, 89, '信用状况良好，能遵守社区规定，偶尔有守信行为', 2),
+('LEVEL003', '一般信用', 50, 69, '信用表现一般，无重大失信行为，但守信行为较少', 3),
+('LEVEL004', '关注对象', 30, 49, '存在多次轻微失信行为，信用状况需引起关注', 4),
+('LEVEL005', '失信人员', 0, 29, '失信行为严重，对社区秩序和环境造成较大不良影响', 5);
