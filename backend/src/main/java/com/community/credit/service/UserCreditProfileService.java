@@ -105,7 +105,22 @@ public interface UserCreditProfileService extends IService<UserCreditProfile> {
     List<Map<String, Object>> getUserScoreHistory(Integer userId);
 
     /**
+     * 分页查询用户信用档案列表
+     */
+    Map<String, Object> getUserCreditProfileList(Integer page, Integer size, String keyword, String creditLevel);
+
+    /**
      * 检查用户是否可以兑换商品
      */
     boolean canExchangeProduct(Integer userId, Integer requiredPoints, List<String> eligibleLevels);
+
+    /**
+     * 获取高信用等级用户数量（AA和AAA等级）
+     */
+    long getHighCreditUserCount();
+
+    /**
+     * 清除用户信用档案缓存
+     */
+    void clearUserProfileCache(Integer userId);
 } 

@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.community.credit.dto.ExchangeRecordQueryRequest;
 import com.community.credit.entity.PointExchangeRecord;
+import jakarta.servlet.http.HttpServletResponse;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -47,4 +49,20 @@ public interface PointExchangeRecordService extends IService<PointExchangeRecord
      * @return 热门商品列表
      */
     List<Map<String, Object>> getPopularProducts(Integer limit);
+
+    /**
+     * 删除兑换记录
+     * 
+     * @param recordId 记录ID
+     */
+    void deleteRecord(Integer recordId);
+
+    /**
+     * 导出兑换记录
+     * 
+     * @param request 查询条件
+     * @param response HTTP响应
+     * @throws IOException IO异常
+     */
+    void exportRecords(ExchangeRecordQueryRequest request, HttpServletResponse response) throws IOException;
 } 

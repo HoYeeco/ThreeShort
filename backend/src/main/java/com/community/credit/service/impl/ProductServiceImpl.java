@@ -13,6 +13,7 @@ import com.community.credit.entity.UserCreditProfile;
 import com.community.credit.mapper.ProductMapper;
 import com.community.credit.service.PointExchangeRecordService;
 import com.community.credit.service.ProductService;
+import com.community.credit.service.SystemLogService;
 import com.community.credit.service.UserCreditProfileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -43,6 +44,9 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
     
     @Autowired
     private PointExchangeRecordService pointExchangeRecordService;
+
+    @Autowired
+    private SystemLogService systemLogService;
 
     @Override
     public IPage<Product> getProductList(ProductQueryRequest request) {
@@ -92,7 +96,17 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             queryWrapper.orderByDesc("created_time");
         }
 
-        return this.page(page, queryWrapper);
+        IPage<Product> result = this.page(page, queryWrapper);
+        
+        // 调试日志：检查eligibleLevels字段
+        if (result.getRecords() != null && !result.getRecords().isEmpty()) {
+            for (Product product : result.getRecords()) {
+                log.debug("商品 {} 的eligibleLevels: {}, imageUrl: {}", 
+                    product.getName(), product.getEligibleLevels(), product.getImageUrl());
+            }
+        }
+        
+        return result;
     }
 
     @Override
@@ -123,6 +137,12 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         product.setCreatedTime(LocalDateTime.now());
         product.setUpdatedTime(LocalDateTime.now());
         
+        // 如果有minEligibleLevel，转换为eligibleLevels以保持兼容性
+        if (request.getMinEligibleLevel() != null) {
+            product.setMinEligibleLevel(request.getMinEligibleLevel());
+            product.setEligibleLevels(convertMinLevelToEligibleLevels(request.getMinEligibleLevel()));
+        }
+        
         this.save(product);
         log.info("创建商品成功：{}", product.getName());
         return product.getId();
@@ -142,6 +162,15 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         product.setPointsRequired(request.getPointsRequired());
         product.setStockQuantity(request.getStockQuantity());
         product.setCategory(request.getCategory());
+        product.setImageUrl(request.getImageUrl());
+        
+        // 如果有minEligibleLevel，转换为eligibleLevels以保持兼容性
+        if (request.getMinEligibleLevel() != null) {
+            product.setMinEligibleLevel(request.getMinEligibleLevel());
+            product.setEligibleLevels(convertMinLevelToEligibleLevels(request.getMinEligibleLevel()));
+        } else {
+            product.setEligibleLevels(request.getEligibleLevels());
+        }
 
         updateById(product);
     }
@@ -201,6 +230,9 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         profile.setRewardPoints(profile.getRewardPoints() - totalPointsRequired);
         userCreditProfileService.updateById(profile);
         
+        // 清除用户信用档案缓存，确保数据一致性
+        userCreditProfileService.clearUserProfileCache(request.getUserId());
+        
         // 扣减库存
         product.setStockQuantity(product.getStockQuantity() - request.getQuantity());
         this.updateById(product);
@@ -217,6 +249,17 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         record.setRemarks(request.getRemarks());
         
         pointExchangeRecordService.save(record);
+        
+        // 记录积分兑换日志
+        systemLogService.recordSuccessLog(
+            request.getUserId(),
+            "POINT_EXCHANGE",
+            String.format("用户兑换商品：%s × %d，消耗积分：%d", product.getName(), request.getQuantity(), totalPointsRequired),
+            "POST",
+            "/product/exchange",
+            String.format("{\"productId\":%d,\"quantity\":%d}", request.getProductId(), request.getQuantity()),
+            String.format("{\"recordId\":%d,\"pointsUsed\":%d}", record.getId(), totalPointsRequired)
+        );
         
         log.info("用户 {} 成功兑换商品 {}，数量：{}，消耗积分：{}", 
                 request.getUserId(), product.getName(), request.getQuantity(), totalPointsRequired);
@@ -367,7 +410,62 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
      * 检查用户等级是否可以兑换商品
      */
     private boolean isEligibleForLevel(Product product, String userLevel) {
+        // 优先使用新的minEligibleLevel字段
+        if (product.getMinEligibleLevel() != null) {
+            return isUserLevelEligible(product.getMinEligibleLevel(), userLevel);
+        }
+        
+        // 兼容旧的eligibleLevels字段
         List<String> eligibleLevels = product.getEligibleLevels();
         return eligibleLevels == null || eligibleLevels.isEmpty() || eligibleLevels.contains(userLevel);
+    }
+    
+    /**
+     * 检查用户等级是否满足最低兑换要求
+     * @param minLevel 最低兑换等级
+     * @param userLevel 用户等级
+     * @return 是否满足要求
+     */
+    private boolean isUserLevelEligible(String minLevel, String userLevel) {
+        if (minLevel == null || userLevel == null) {
+            return true;
+        }
+        
+        // 等级优先级：D < C < B < A < AA < AAA
+        Map<String, Integer> levelPriority = Map.of(
+            "D", 1,
+            "C", 2,
+            "B", 3,
+            "A", 4,
+            "AA", 5,
+            "AAA", 6
+        );
+        
+        int minPriority = levelPriority.getOrDefault(minLevel, 1);
+        int userPriority = levelPriority.getOrDefault(userLevel, 1);
+        
+        // 用户等级优先级 >= 最低要求等级优先级
+        return userPriority >= minPriority;
+    }
+    
+    /**
+     * 将最低兑换等级转换为可兑换等级列表
+     * @param minLevel 最低兑换等级
+     * @return 可兑换等级列表
+     */
+    private List<String> convertMinLevelToEligibleLevels(String minLevel) {
+        if (minLevel == null) {
+            return List.of("D", "C", "B", "A", "AA", "AAA");
+        }
+        
+        // 等级序列：D < C < B < A < AA < AAA
+        List<String> allLevels = List.of("D", "C", "B", "A", "AA", "AAA");
+        int minIndex = allLevels.indexOf(minLevel);
+        
+        if (minIndex == -1) {
+            return List.of("D", "C", "B", "A", "AA", "AAA");
+        }
+        
+        return allLevels.subList(minIndex, allLevels.size());
     }
 } 

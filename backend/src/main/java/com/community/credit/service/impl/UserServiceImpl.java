@@ -9,6 +9,7 @@ import com.community.credit.dto.UserUpdateRequest;
 import com.community.credit.entity.User;
 import com.community.credit.mapper.UserMapper;
 import com.community.credit.service.SystemLogService;
+import com.community.credit.service.UserCreditProfileService;
 import com.community.credit.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.concurrent.TimeUnit;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 用户服务实现类
@@ -34,6 +37,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private SystemLogService systemLogService;
+
+    @Autowired
+    private UserCreditProfileService userCreditProfileService;
 
     @Override
     public IPage<User> queryUsers(UserQueryRequest request) {
@@ -147,5 +153,73 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("username", username);
         return this.getOne(queryWrapper);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(Integer userId, String newPassword) {
+        User user = getById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+
+        // 简化版密码加密，实际应该使用BCrypt等安全算法
+        user.setPassword(newPassword);
+        updateById(user);
+
+        log.info("用户密码重置成功，用户ID: {}", userId);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(Integer userId, String oldPassword, String newPassword) {
+        User user = getById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+
+        // 验证原密码
+        if (!oldPassword.equals(user.getPassword())) {
+            throw new RuntimeException("原密码不正确");
+        }
+
+        // 检查新密码是否与原密码相同
+        if (oldPassword.equals(newPassword)) {
+            throw new RuntimeException("新密码不能与原密码相同");
+        }
+
+        // 更新密码
+        user.setPassword(newPassword);
+        updateById(user);
+
+        log.info("用户密码修改成功，用户ID: {}", userId);
+    }
+
+    @Override
+    public Map<String, Object> getUserStatistics() {
+        Map<String, Object> stats = new HashMap<>();
+        
+        // 总用户数
+        long totalUsers = this.count();
+        stats.put("total", totalUsers);
+        
+        // 活跃用户数（状态为1的用户）
+        QueryWrapper<User> activeQuery = new QueryWrapper<>();
+        activeQuery.eq("status", 1);
+        long activeUsers = this.count(activeQuery);
+        stats.put("active", activeUsers);
+        
+        // 今日新增用户数
+        LocalDateTime todayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        QueryWrapper<User> todayQuery = new QueryWrapper<>();
+        todayQuery.ge("created_time", todayStart);
+        long todayUsers = this.count(todayQuery);
+        stats.put("today", todayUsers);
+        
+        // 高信用等级用户数（AA和AAA等级）
+        // 这里需要关联user_credit_profiles表
+        stats.put("creditHigh", userCreditProfileService.getHighCreditUserCount());
+        
+        return stats;
     }
 } 

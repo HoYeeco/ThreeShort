@@ -444,19 +444,28 @@ public class CommunityAgreementServiceImpl extends ServiceImpl<CommunityAgreemen
      */
     private void clearAgreementFromLearningProgress(Integer agreementId) {
         try {
-            // 获取所有learning相关的key
-            Set<String> learningKeys = redisTemplate.keys("learning:*");
-            if (learningKeys != null && !learningKeys.isEmpty()) {
-                for (String key : learningKeys) {
-                    // 从Set中移除这个公约ID
+            // 只清理Set类型的学习进度key（progress和complete）
+            Set<String> progressKeys = redisTemplate.keys("learning:progress:*");
+            if (progressKeys != null && !progressKeys.isEmpty()) {
+                for (String key : progressKeys) {
                     redisTemplate.opsForSet().remove(key, agreementId);
                 }
+                log.info("已清理公约ID {} 的查看进度数据，共处理 {} 个用户", agreementId, progressKeys.size());
+            }
+            
+            Set<String> completeKeys = redisTemplate.keys("learning:complete:*");
+            if (completeKeys != null && !completeKeys.isEmpty()) {
+                for (String key : completeKeys) {
+                    redisTemplate.opsForSet().remove(key, agreementId);
+                }
+                log.info("已清理公约ID {} 的完成进度数据，共处理 {} 个用户", agreementId, completeKeys.size());
             }
             
             // 清理所有用户的学习统计缓存，强制重新计算
             Set<String> statsKeys = redisTemplate.keys("learning:stats:*");
             if (statsKeys != null && !statsKeys.isEmpty()) {
                 redisTemplate.delete(statsKeys);
+                log.info("已清理学习统计缓存，共清理 {} 个缓存", statsKeys.size());
             }
             
             log.info("已清理公约ID {} 的所有学习进度数据", agreementId);
